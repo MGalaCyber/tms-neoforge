@@ -23,6 +23,7 @@ import dev.kingtux.tms.TooManyShortcutsCore;
 import dev.kingtux.tms.api.TMSKeyBindingUtils;
 import dev.kingtux.tms.api.modifiers.BindingModifiers;
 import dev.kingtux.tms.api.modifiers.KeyModifier;
+import dev.kingtux.tms.compat.InputCompat;
 import dev.kingtux.tms.mlayout.IKeyBinding;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -186,7 +187,7 @@ public class KeyBindingManager {
             if (keyBinding.isUnbound()) {
                 return;
             }
-            boolean pressed = key.getType() == InputConstants.Type.KEYSYM && InputConstants.isKeyDown(windowHandle, key.getValue());
+            boolean pressed = key.getType() == InputCompat.keyboardType() && InputCompat.isKeyDown(windowHandle, key.getValue());
             setKeyBindingPressed(keyBinding, pressed);
         });
     }

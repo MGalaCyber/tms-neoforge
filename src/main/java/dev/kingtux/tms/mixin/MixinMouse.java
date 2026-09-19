@@ -1,6 +1,7 @@
 package dev.kingtux.tms.mixin;
 
 import dev.kingtux.tms.compat.ClientCompat;
+import dev.kingtux.tms.compat.InputCompat;
 import dev.kingtux.tms.shortcuts.TmsShortcuts;
 import net.fabricmc.api.EnvType;
 import net.minecraft.client.gui.screens.Screen;
@@ -10,7 +11,6 @@ import net.minecraft.client.MouseHandler;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,12 +30,13 @@ public class MixinMouse {
         // If the alternative keybinding is pressed. Then we need to cancel the event and call either the screen or the open menu
         if (TmsShortcuts.INSTANCE.getEscapeKeyBinding().matchesMouse(new MouseButtonEvent(
                 0, 0, button
-        )) && (action == GLFW.GLFW_PRESS || action == GLFW.GLFW_REPEAT)) {
+        )) && (action == InputCompat.pressAction() || action == InputCompat.repeatAction())) {
             Minecraft client = Minecraft.getInstance();
             Screen currentScreen = ClientCompat.getScreen(client);
             if (currentScreen != null) {
                 currentScreen.keyPressed(
-                    new KeyEvent(                        GLFW.GLFW_KEY_ESCAPE,
+                    new KeyEvent(
+                            InputCompat.escape(),
                             button.button(),
                             0)
                 );

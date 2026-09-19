@@ -17,9 +17,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Replaces the vanilla KeyBindsScreen with TMSKeyBindsScreen on Minecraft 26.1 and
  * earlier, where setScreen lives on {@link Minecraft}. See
  * {@link OpenTMSKeybindsScreenModern} for the 26.2+ variant (setScreen moved to Gui).
- * <p>
- * Intercepting here (rather than letting the screen open) ensures other mods that edit
- * the Controls Screen can still access it.
  */
 @Environment(EnvType.CLIENT)
 @MinecraftVersion(minecraftVersions = {"<26.2"})

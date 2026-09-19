@@ -10,6 +10,7 @@ import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
 import net.minecraft.client.KeyMapping
 import com.mojang.blaze3d.platform.InputConstants
+import dev.kingtux.tms.compat.InputCompat
 import net.minecraft.world.entity.player.PlayerModelPart
 import net.minecraft.resources.Identifier
 import java.util.*
@@ -20,7 +21,7 @@ object TmsShortcuts_1_21 : ClientModInitializer {
             KeyMappingHelper.registerKeyMapping(
                 TMSKeyBinding(
                     Identifier.fromNamespaceAndPath(TmsShortcuts.MOD_ID, "alternative_escape"),
-                    InputConstants.Type.KEYSYM,
+                    InputCompat.keyboardType(),
                     InputConstants.UNKNOWN.value,
                     KeyMapping.Category.MISC,
                     BindingModifiers()
@@ -30,8 +31,8 @@ object TmsShortcuts_1_21 : ClientModInitializer {
         KeyMappingHelper.registerKeyMapping(
             ToggleAutoJumpKeyBinding(
                 Identifier.fromNamespaceAndPath(TmsShortcuts.MOD_ID, "toggle_auto_jump"),
-                InputConstants.Type.KEYSYM,
-                66,
+                InputCompat.keyboardType(),
+                InputCompat.autoJumpDefault(),
                 KeyMapping.Category.MISC,
                 BindingModifiers()
             )
@@ -41,7 +42,7 @@ object TmsShortcuts_1_21 : ClientModInitializer {
         HotBarDirection.entries.map {
             ScrollHotBar(
                 Identifier.fromNamespaceAndPath(TmsShortcuts.MOD_ID, it.bindingKey()),
-                InputConstants.Type.KEYSYM,
+                InputCompat.keyboardType(),
                 InputConstants.UNKNOWN.value,
                 KeyMapping.Category.INVENTORY,
                 BindingModifiers(),
@@ -57,7 +58,7 @@ object TmsShortcuts_1_21 : ClientModInitializer {
             .map { playerModelPart: PlayerModelPart ->
                 SkinLayerKeyBinding(
                     Identifier.fromNamespaceAndPath(TmsShortcuts.MOD_ID, "toggle_" + playerModelPart.name.lowercase()),
-                    InputConstants.Type.KEYSYM,
+                    InputCompat.keyboardType(),
                     InputConstants.UNKNOWN.value,
                     TmsShortcuts.SKIN_LAYER_CATEGORY,
                     playerModelPart

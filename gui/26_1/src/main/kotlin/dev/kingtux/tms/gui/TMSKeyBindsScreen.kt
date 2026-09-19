@@ -18,11 +18,11 @@ import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.Options
 import net.minecraft.client.KeyMapping
 import com.mojang.blaze3d.platform.InputConstants
+import dev.kingtux.tms.compat.InputCompat
 import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import org.apache.logging.log4j.Level
 import org.jetbrains.annotations.ApiStatus
-import org.lwjgl.glfw.GLFW
 
 private val TITLE_TEXT: Component = Component.translatable("controls.keybinds.title")
 
@@ -153,7 +153,7 @@ class TMSKeyBindsScreen(parent: Screen, gameOptions: Options) :
             return super.keyPressed(input)
         }
         // If the key is escape we are going to clear the selected binding.
-        if (input.key == GLFW.GLFW_KEY_ESCAPE) {
+        if (input.key == InputCompat.escape()) {
             this.selectedKeyBinding?.binding?.clearBinding(false)
             controlsList.update()
             return true

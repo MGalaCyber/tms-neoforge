@@ -23,16 +23,16 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Build
-        run: gradle build
+        run: ./gradlew build
       - name: Publish Mod
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           LATEST_CHANGE_LOG: ${{ steps.changelog.outputs.latestBody }}
-        run: gradle modrinth
+        run: ./gradlew modrinth
       - name: Release
         uses: softprops/action-gh-release@v2
         with:

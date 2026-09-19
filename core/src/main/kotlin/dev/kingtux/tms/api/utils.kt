@@ -131,5 +131,5 @@ fun Options.hasModifiedKeyBindings(): Boolean {
 }
 
 fun isShiftKey(key: Int): Boolean {
-    return key == 340 || key == 344
+    return KeyModifier.SHIFT.matches(key)
 }

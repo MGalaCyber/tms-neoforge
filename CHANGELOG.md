@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.21] (09-19-2026)
+- 26.3 Update.
+- Minecraft 26.3 replaced GLFW with SDL3, renumbering every key code, mouse button and modifier
+  bit. Key codes are now resolved from key names against the running game instead of being
+  compiled in, so one jar stays correct on both numbering schemes.
+- Existing keybinds carry over untouched: the config stores key names, not raw key codes.
+- API: `KeyModifier.fromModifiers(Int)` is replaced by `KeyModifier.fromInput(InputWithModifiers)`,
+  and `KeyModifier` no longer exposes a GLFW modifier `bit`.
+
 ## [0.0.20] (08-08-2026)
 - Fixed Lang Files
 

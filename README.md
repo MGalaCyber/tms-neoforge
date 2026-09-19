@@ -22,6 +22,8 @@ and [Nmuk](https://github.com/Siphalor/nmuk)
 ## Supported Minecraft Versions
 
 - 26.1
+- 26.2
+- 26.3
 
 ### Version Policy
 

@@ -17,9 +17,9 @@
 package de.siphalor.amecs.api;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.kingtux.tms.compat.InputCompat;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import org.apache.commons.lang3.ArrayUtils;
 
 @SuppressWarnings("WeakerAccess")
 @Environment(EnvType.CLIENT)
@@ -28,22 +28,35 @@ public enum KeyModifier {
     // with this order the old text order is preserved. But now the id values do not increment nicely. But changing them would eliminate
     // backward compatibility with the old save format
     NONE("none", -1),
-    ALT("alt", 0, 342, 346),
-    SHIFT("shift", 2, 340, 344),
-    CONTROL("control", 1, 341, 345);
+    ALT("alt", 0, "key.keyboard.left.alt", "key.keyboard.right.alt"),
+    SHIFT("shift", 2, "key.keyboard.left.shift", "key.keyboard.right.shift"),
+    CONTROL("control", 1, "key.keyboard.left.control", "key.keyboard.right.control");
 
     // using this array for the values because it is faster than calling values() every time
     public static final KeyModifier[] VALUES = KeyModifier.values();
 
     public final String name;
     public final int id;
-    // these keyCodes are all from Type: InputUtil.Type.KEYSYM
-    final int[] keyCodes;
+    private final String[] keyNames;
+    // Resolved from keyNames against the running game rather than hardcoded: 26.3 moved from
+    // GLFW key codes to SDL scancodes, so the numbers differ per Minecraft version.
+    private int[] keyCodes;
 
-    KeyModifier(String name, int id, int... keyCodes) {
+    KeyModifier(String name, int id, String... keyNames) {
         this.name = name;
         this.id = id;
-        this.keyCodes = keyCodes;
+        this.keyNames = keyNames;
+    }
+
+    private int[] keyCodes() {
+        if (keyCodes == null) {
+            int[] resolved = new int[keyNames.length];
+            for (int i = 0; i < keyNames.length; i++) {
+                resolved[i] = InputCompat.code(keyNames[i]);
+            }
+            keyCodes = resolved;
+        }
+        return keyCodes;
     }
 
     public static KeyModifier fromKeyCode(int keyCode) {
@@ -59,7 +72,7 @@ public enum KeyModifier {
     }
 
     public static KeyModifier fromKey(InputConstants.Key key) {
-        if (key == null || key.getType() != InputConstants.Type.KEYSYM) {
+        if (key == null || key.getType() != InputCompat.keyboardType()) {
             return NONE;
         }
         return fromKeyCode(key.getValue());
@@ -70,6 +83,14 @@ public enum KeyModifier {
     }
 
     public boolean matches(int keyCode) {
-        return ArrayUtils.contains(keyCodes, keyCode);
+        if (keyCode == InputCompat.unknownValue()) {
+            return false;
+        }
+        for (int candidate : keyCodes()) {
+            if (candidate == keyCode) {
+                return true;
+            }
+        }
+        return false;
     }
 }

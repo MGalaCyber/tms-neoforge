@@ -1,10 +1,12 @@
 package dev.kingtux.tms.api.modifiers
 
 import dev.kingtux.tms.api.ModifierPrefixTextProvider
+import dev.kingtux.tms.compat.InputCompat
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
 import com.mojang.blaze3d.platform.InputConstants
-import org.apache.commons.lang3.ArrayUtils
+import net.minecraft.client.input.InputWithModifiers
+
 /**
 * the order of the enums makes a difference when generating the shown name in the gui
 * with this order the old text order is preserved. But now the id values do not increment nicely. But changing them would eliminate
@@ -12,23 +14,24 @@ import org.apache.commons.lang3.ArrayUtils
 */
 @Environment(EnvType.CLIENT)
 enum class KeyModifier(
-    val id: Int, val bit: Int, // these keyCodes are all from Type: InputConstants.Type.KEYSYM
-    vararg val keyCodes: Int
+    val id: Int,
+    private val leftKeyName: String,
+    private val rightKeyName: String,
 ) {
     /**
      * Alt key modifier.
      */
-    ALT(0, 0x0004, 342, 346),
+    ALT(0, "key.keyboard.left.alt", "key.keyboard.right.alt"),
 
     /**
      * Shift key modifier.
      */
-    SHIFT(2, 0x0001, 340, 344),
+    SHIFT(2, "key.keyboard.left.shift", "key.keyboard.right.shift"),
 
     /**
      * Control key modifier.
      */
-    CONTROL(1, 0x0002, 341, 345);
+    CONTROL(1, "key.keyboard.left.control", "key.keyboard.right.control");
 
     /**
      * The name of the modifier, used for translation keys and display names.
@@ -38,10 +41,20 @@ enum class KeyModifier(
         ModifierPrefixTextProvider(this)
 
     /**
+     * The left and right key codes for this modifier, as the running Minecraft numbers them.
+     *
+     * Resolved from key names rather than written as literals: 26.3 moved from GLFW key codes to
+     * SDL scancodes, so left shift is 340 on 26.1/26.2 and 225 on 26.3.
+     */
+    val keyCodes: IntArray by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        intArrayOf(InputCompat.code(leftKeyName), InputCompat.code(rightKeyName))
+    }
+
+    /**
      * Checks if the given keyCode matches this KeyModifier.
      */
     fun matches(keyCode: Int): Boolean {
-        return ArrayUtils.contains(keyCodes, keyCode)
+        return keyCode != InputCompat.unknownValue() && keyCodes.contains(keyCode)
     }
 
     /**
@@ -52,14 +65,17 @@ enum class KeyModifier(
         get() = "tms.modifier." + name.lowercase()
 
     companion object {
-        // using this array for the values because it is faster than calling values() every time
-        fun fromModifiers(modifiers: Int): List<KeyModifier> {
+        /**
+         * Returns the modifiers held down during [input].
+         *
+         * Delegates the bitmask arithmetic to Minecraft's own [InputWithModifiers] defaults, so
+         * the running game applies its own modifier bits — GLFW's on 26.1/26.2, SDL's on 26.3.
+         */
+        fun fromInput(input: InputWithModifiers): List<KeyModifier> {
             val result: MutableList<KeyModifier> = ArrayList()
-            for (keyModifier in entries) {
-                if ((modifiers and keyModifier.bit) == keyModifier.bit) {
-                    result.add(keyModifier)
-                }
-            }
+            if (input.hasAltDown()) result.add(ALT)
+            if (input.hasShiftDown()) result.add(SHIFT)
+            if (input.hasControlDown()) result.add(CONTROL)
             return result
         }
 
@@ -88,7 +104,7 @@ enum class KeyModifier(
          * @return True if the key is a key modifier, false otherwise.
          */
         fun isKeyModifier(key: InputConstants.Key?): Boolean {
-            if (key == null || key.type != InputConstants.Type.KEYSYM) {
+            if (key == null || key.type != InputCompat.keyboardType()) {
                 return false
             }
             for (keyModifier in entries) {
@@ -108,7 +124,7 @@ enum class KeyModifier(
          * @return The KeyModifier that matches the key, or null if none match.
          */
         fun fromKey(key: InputConstants.Key?): KeyModifier? {
-            if (key == null || key.type != InputConstants.Type.KEYSYM) {
+            if (key == null || key.type != InputCompat.keyboardType()) {
                 return null
             }
             return fromKeyCode(key.value)

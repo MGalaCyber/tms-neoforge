@@ -43,13 +43,7 @@ class MCVersionMixinPlugin : IMixinConfigPlugin {
                 .get().metadata.version.friendlyString
         )
 
-        for (supportedVersion in supportedMinecraftVersions) {
-            if (supportedVersion.supports(minecraftVersion)) {
-                return true;
-            }
-        }
-
-        return false;
+        return supportsAll(supportedMinecraftVersions, minecraftVersion)
     }
 
     override fun acceptTargets(

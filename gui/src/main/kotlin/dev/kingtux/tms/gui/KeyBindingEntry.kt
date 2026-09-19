@@ -8,6 +8,7 @@ import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.resources.language.I18n
 import com.mojang.blaze3d.platform.InputConstants
+import dev.kingtux.tms.compat.InputCompat
 import net.minecraft.network.chat.Component
 import org.apache.logging.log4j.Level
 
@@ -26,7 +27,7 @@ interface KeyBindingEntry<T : ControlsListWidget<*, *, *>> {
             return
         }
         val iBinding = binding as IKeyBinding
-        val keyCode = InputConstants.Type.MOUSE.getOrCreate(button)
+        val keyCode = InputCompat.mouseType().getOrCreate(button)
         val key = (binding as IKeyBinding).`tms$getBoundKey`()
         val keyAsModifier = fromKey(key)
         if (key != InputConstants.UNKNOWN && keyAsModifier != null) {
@@ -54,10 +55,10 @@ interface KeyBindingEntry<T : ControlsListWidget<*, *, *>> {
         // Gets the current bindings modifiers
         val keyModifiers = iBinding.`tms$getKeyModifiers`()
         // Get the active modifiers being pressed
-        val activeModifiers = KeyModifier.fromModifiers(input.modifiers)
+        val activeModifiers = KeyModifier.fromInput(input)
         TmsGUI.log(
             Level.INFO,
-            "Key Code $input.key Scan Code ${input.scancode} Modifiers $activeModifiers from ${input.modifiers}"
+            "Key Code ${input.key} Modifiers $activeModifiers from ${input.modifiers}"
         )
 
         // Remove all the modifiers then add the active ones
