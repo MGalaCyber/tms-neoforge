@@ -20,8 +20,19 @@ public final class SkinLayerKeyMapping extends TMSKeyMapping {
     public void onPressed() {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
-        boolean newValue = !client.options.isModelPartEnabled(playerModelPart);
-        client.options.setModelPartEnabled(playerModelPart, newValue);
+        // Options.modelParts is a private Set<PlayerModelPart>; exposed via AccessTransformer
+        // (there's no public isModelPartEnabled/setModelPartEnabled pair in 1.21.1's Options).
+        boolean newValue = !client.options.modelParts.contains(playerModelPart);
+        if (newValue) {
+            client.options.modelParts.add(playerModelPart);
+        } else {
+            client.options.modelParts.remove(playerModelPart);
+        }
+        // NOTE: vanilla's own Options screen sends a ServerboundClientInformationPacket when
+        // this changes, so other players/the server see the update. This toggle changes it
+        // locally (your own client sees the layer appear/disappear immediately) but does not
+        // re-send that packet, so other players may not see it until you next open/close the
+        // regular Options menu. Wire that packet in here if that matters for your use case.
         TooManyShortcuts.sendToggleMessage(client.player, newValue,
                 net.minecraft.network.chat.Component.translatable("options.modelPart." + playerModelPart.getId()));
     }

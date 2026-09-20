@@ -13,7 +13,6 @@ import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -176,7 +175,7 @@ public final class TMSKeyBindsScreen extends Screen {
             g.drawCenteredString(font, title, left + width / 2, top + height - 9 - 1, 0xFFFFFF);
         }
 
-        @Override public void updateNarration(NarrationElementOutput output) {}
+        @Override public Component getNarration() { return title; }
     }
 
     private final class KeyRow extends Row {
@@ -274,6 +273,9 @@ public final class TMSKeyBindsScreen extends Screen {
             return false;
         }
 
-        @Override public void updateNarration(NarrationElementOutput output) {}
+        @Override
+        public Component getNarration() {
+            return Component.translatable(binding.getName()).append(": ").append(binding.getTranslatedKeyMessage());
+        }
     }
 }

@@ -8,7 +8,6 @@ import dev.kingtux.tms.alternatives.AlternativeKeyMapping;
 import dev.kingtux.tms.api.IKeyBinding;
 import net.minecraft.client.KeyMapping;
 import net.neoforged.fml.loading.FMLPaths;
-import org.apache.logging.log4j.Level;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -57,7 +56,7 @@ public final class ConfigManager {
             Config loaded = GSON.fromJson(text, Config.class);
             config = loaded != null ? loaded : new Config();
         } catch (IOException | JsonSyntaxException e) {
-            TooManyShortcuts.LOGGER.log(Level.WARN, "Could not read {}, using defaults", path, e);
+            TooManyShortcuts.LOGGER.warn("Could not read {}, using defaults", path, e);
             config = new Config();
         }
     }
@@ -67,7 +66,7 @@ public final class ConfigManager {
             Files.createDirectories(path.getParent());
             Files.writeString(path, GSON.toJson(config), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            TooManyShortcuts.LOGGER.log(Level.WARN, "Could not write {}", path, e);
+            TooManyShortcuts.LOGGER.warn("Could not write {}", path, e);
         }
     }
 
@@ -99,7 +98,7 @@ public final class ConfigManager {
                     .findFirst()
                     .orElse(null);
             if (keyBinding == null) {
-                TooManyShortcuts.LOGGER.log(Level.WARN, "Keybinding not found, skipping: {}", name);
+                TooManyShortcuts.LOGGER.warn("Keybinding not found, skipping: {}", name);
                 continue;
             }
             ((IKeyBinding) keyBinding).tms$fromConfig(configBindings.primaryBinding);

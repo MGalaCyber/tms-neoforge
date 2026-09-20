@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.network.chat.Component;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.Level;
 
 /** Free functions from upstream's Kotlin {@code utils.kt}, as static methods. */
 public final class Utils {
@@ -66,7 +65,7 @@ public final class Utils {
     }
 
     public static void logInvalid(KeyMapping keyBinding) {
-        TooManyShortcuts.LOGGER.log(Level.ERROR,
+        TooManyShortcuts.LOGGER.error(
                 "KeyMapping {} is not an IKeyBinding. This should never happen; the mixin may have failed to apply. Class: {}",
                 keyBinding, keyBinding.getClass().getName());
     }
