@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "dev.kingtux.tms.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "too_many_shortcuts.refmap.json",
+  "mixins": [],
+  "client": [
+    "MixinKeyMapping",
+    "MixinKeyboardHandler",
+    "MixinOptions"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}
