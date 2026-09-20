@@ -12,14 +12,16 @@ import net.minecraft.client.gui.screens.options.controls.ControlsScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.PlayerModelPart;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
-/** Client-side wiring: keybind registration and the Controls-screen button. */
-@EventBusSubscriber(modid = TooManyShortcuts.MOD_ID, value = net.neoforged.api.distmarker.Dist.CLIENT)
+/** Client-side wiring: keybind registration and the Controls-screen button.
+ *  Registered manually (via addListener) in {@link #register} — deliberately
+ *  no {@code @EventBusSubscriber} here, since this class has no
+ *  {@code @SubscribeEvent} static methods; that mismatch previously made
+ *  NeoForge throw during mod construction and take the whole load down with it. */
 public final class ClientSetup {
     private ClientSetup() {}
 
