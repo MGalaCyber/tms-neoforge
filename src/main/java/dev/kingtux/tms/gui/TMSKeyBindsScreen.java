@@ -6,6 +6,8 @@ import dev.kingtux.tms.alternatives.AlternativeKeyMapping;
 import dev.kingtux.tms.api.BindingModifiers;
 import dev.kingtux.tms.api.IKeyBinding;
 import dev.kingtux.tms.api.KeyModifier;
+import dev.kingtux.tms.api.Utils;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,29 +23,38 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * TMS's own keybinds screen: per-binding Ctrl/Shift/Alt modifiers and "add an alternative
- * bind" support that the vanilla Controls screen has no room for. Reimplemented for NeoForge
- * against upstream's feature set (upstream's {@code TMSKeyBindsScreen} / {@code TMSKeyBindingEntry}
- * / {@code TMSCategoryEntry}, ~700 lines of Yarn-mapped Kotlin) — this version renders rows
- * manually with cached hit-boxes instead of nesting vanilla {@code Button} widgets inside list
- * entries, which is a smaller surface to get wrong when ported across mapping namespaces.
+ * TMS's own keybinds screen — it fully replaces vanilla's "Key Binds" screen (see
+ * {@code ClientSetup#replaceKeyBindsScreen}) and adds per-binding Ctrl/Shift/Alt modifiers,
+ * alternative binds, conflict highlighting, and filtering on top of it.
+ *
+ * <p>The rebind/reset/add/remove controls are real vanilla {@link Button} widgets (not
+ * hand-drawn rectangles), positioned fresh every frame in each row's {@code render}, so
+ * they pick up resource-pack retextures the same way vanilla's own Key Binds screen does.</p>
  *
  * <p>This file is the least-tested part of the port: {@link ObjectSelectionList} and
  * {@link AbstractSelectionList} constructor/method signatures have shifted between Minecraft
- * versions before, and this was written from documentation and the 1.21.1 source read alongside
- * this port, not compiled. If the build fails here, that's the first place to look.</p>
+ * versions before. The list constructor call below matches what already compiled and ran
+ * successfully in an earlier version of this file — if you change those numbers, that's the
+ * part to double check first.</p>
  */
 public final class TMSKeyBindsScreen extends Screen {
     private static final int ROW_HEIGHT = 20;
-    private static final int BTN_W = 16;
+    private static final int BTN_W = 20;
 
     private final Screen parent;
     private EditBox searchBox;
     private KeyList list;
+    private Button conflictsFilterButton;
+    private Button unboundFilterButton;
 
     /** The binding currently waiting for the next key/mouse press, or null. */
     private KeyMapping listening;
-    private String lastFilter = "";
+
+    private boolean filterConflicts = false;
+    private boolean filterUnbound = false;
+
+    /** binding -> the other bindings it collides with (same key + same modifiers). Rebuilt on refresh. */
+    private final Map<KeyMapping, List<KeyMapping>> conflicts = new IdentityHashMap<>();
 
     public TMSKeyBindsScreen(Screen parent) {
         super(Component.translatable("too_many_shortcuts.screen.title"));
@@ -52,11 +63,31 @@ public final class TMSKeyBindsScreen extends Screen {
 
     @Override
     protected void init() {
-        searchBox = new EditBox(font, width / 2 - 100, 20, 200, 20, Component.translatable("too_many_shortcuts.screen.search"));
+        searchBox = new EditBox(font, width / 2 - 100, 24, 200, 16, Component.translatable("too_many_shortcuts.screen.search"));
         searchBox.setResponder(text -> refreshList());
         addRenderableWidget(searchBox);
 
-        list = new KeyList(minecraft, width, height - 90, 46);
+        conflictsFilterButton = Button.builder(filterLabel("too_many_shortcuts.screen.filter.conflicts", filterConflicts),
+                        b -> {
+                            filterConflicts = !filterConflicts;
+                            b.setMessage(filterLabel("too_many_shortcuts.screen.filter.conflicts", filterConflicts));
+                            refreshList();
+                        })
+                .bounds(width / 2 - 154, 44, 150, 16)
+                .build();
+        addRenderableWidget(conflictsFilterButton);
+
+        unboundFilterButton = Button.builder(filterLabel("too_many_shortcuts.screen.filter.unbound", filterUnbound),
+                        b -> {
+                            filterUnbound = !filterUnbound;
+                            b.setMessage(filterLabel("too_many_shortcuts.screen.filter.unbound", filterUnbound));
+                            refreshList();
+                        })
+                .bounds(width / 2 + 4, 44, 150, 16)
+                .build();
+        addRenderableWidget(unboundFilterButton);
+
+        list = new KeyList(minecraft, width, height - 34, 64);
         addRenderableWidget(list);
         refreshList();
 
@@ -68,6 +99,16 @@ public final class TMSKeyBindsScreen extends Screen {
                 .build());
     }
 
+    private Component filterLabel(String key, boolean on) {
+        return Component.translatable(key, Component.translatable(on ? "too_many_shortcuts.screen.filter.on" : "too_many_shortcuts.screen.filter.off"));
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.render(g, mouseX, mouseY, partialTick);
+        g.drawCenteredString(font, title, width / 2, 8, 0xFFFFFF);
+    }
+
     @Override
     public void onClose() {
         minecraft.options.save();
@@ -75,7 +116,25 @@ public final class TMSKeyBindsScreen extends Screen {
     }
 
     private void refreshList() {
+        computeConflicts();
         list.rebuild(searchBox == null ? "" : searchBox.getValue());
+    }
+
+    /** Two bindings conflict when they're bound to the exact same key AND the exact same modifiers. */
+    private void computeConflicts() {
+        conflicts.clear();
+        KeyMapping[] all = minecraft.options.keyMappings;
+        for (int i = 0; i < all.length; i++) {
+            IKeyBinding a = (IKeyBinding) all[i];
+            if (a.tms$getBoundKey().equals(InputConstants.UNKNOWN)) continue;
+            for (int j = i + 1; j < all.length; j++) {
+                IKeyBinding b = (IKeyBinding) all[j];
+                if (!b.tms$getBoundKey().equals(a.tms$getBoundKey())) continue;
+                if (!b.tms$getKeyModifiers().equals(a.tms$getKeyModifiers())) continue;
+                conflicts.computeIfAbsent(all[i], k -> new ArrayList<>()).add(all[j]);
+                conflicts.computeIfAbsent(all[j], k -> new ArrayList<>()).add(all[i]);
+            }
+        }
     }
 
     private void startListening(KeyMapping binding) {
@@ -148,15 +207,16 @@ public final class TMSKeyBindsScreen extends Screen {
 
         void rebuild(String filter) {
             clearEntries();
-            lastFilter = filter;
             Map<String, List<KeyMapping>> byCategory = Arrays.stream(minecraft.options.keyMappings)
                     .filter(k -> !((IKeyBinding) k).tms$isAlternative())
                     .collect(Collectors.groupingBy(KeyMapping::getCategory, LinkedHashMap::new, Collectors.toList()));
 
             for (var entry : byCategory.entrySet()) {
                 List<KeyMapping> matching = entry.getValue().stream()
-                        .filter(k -> dev.kingtux.tms.api.Utils.entryKeyMatches(k, filter.isEmpty() ? null : filter)
-                                || dev.kingtux.tms.api.Utils.translatedTextEqualsIgnoreCase(k, filter))
+                        .filter(k -> Utils.entryKeyMatches(k, filter.isEmpty() ? null : filter)
+                                || Utils.translatedTextEqualsIgnoreCase(k, filter))
+                        .filter(k -> !filterConflicts || !conflicts.getOrDefault(k, List.of()).isEmpty())
+                        .filter(k -> !filterUnbound || ((IKeyBinding) k).tms$getBoundKey().equals(InputConstants.UNKNOWN))
                         .toList();
                 if (matching.isEmpty()) continue;
 
@@ -201,95 +261,113 @@ public final class TMSKeyBindsScreen extends Screen {
     private final class KeyRow extends Row {
         private final KeyMapping binding;
         private final boolean isAlternative;
-        private int rowLeft, rowTop, rowWidth;
+        private final Button keyButton;
+        private final Button resetButton;
+        private final Button addButton;
+        private final Button removeButton;
 
         KeyRow(KeyMapping binding, boolean isAlternative) {
             this.binding = binding;
             this.isAlternative = isAlternative;
-        }
 
-        @Override
-        public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean hovering, float partialTick) {
-            rowLeft = left; rowTop = top; rowWidth = width;
-
-            String label = isAlternative ? "  \u21B3 alt" : Component.translatable(binding.getName()).getString();
-            g.drawString(font, label, left + 2, top + (height - 8) / 2, 0xFFFFFF);
-
-            int keyBtnW = width - extraButtonsWidth() - 90;
-            int x = left + 90;
-
-            boolean isListening = binding == listening;
-            String keyText = isListening ? listeningLabel() : binding.getTranslatedKeyMessage().getString();
-            int bg = isListening ? 0xFF808000 : (hitKey(mouseX, mouseY) ? 0xFF606060 : 0xFF404040);
-            g.fill(x, top + 1, x + keyBtnW, top + height - 1, bg);
-            g.drawCenteredString(font, keyText, x + keyBtnW / 2, top + (height - 8) / 2, 0xFFFFFF);
-            x += keyBtnW + 2;
+            this.keyButton = Button.builder(Component.empty(), b -> startListening(binding))
+                    .bounds(0, 0, 60, ROW_HEIGHT - 2)
+                    .build();
 
             if (!isAlternative) {
-                drawSmallButton(g, x, top, height, "R", hitReset(mouseX, mouseY));
-                x += BTN_W + 2;
-                drawSmallButton(g, x, top, height, "+", hitAdd(mouseX, mouseY));
+                this.resetButton = Button.builder(Component.literal("R"), b -> {
+                            Utils.resetBinding(binding, false);
+                            minecraft.options.save();
+                            refreshList();
+                        })
+                        .bounds(0, 0, BTN_W, ROW_HEIGHT - 2)
+                        .build();
+                this.addButton = Button.builder(Component.literal("+"), b -> {
+                            AlternativeKeyMapping alt = new AlternativeKeyMapping(binding);
+                            startListening(alt);
+                            refreshList();
+                        })
+                        .bounds(0, 0, BTN_W, ROW_HEIGHT - 2)
+                        .build();
+                this.removeButton = null;
             } else {
-                drawSmallButton(g, x, top, height, "x", hitRemove(mouseX, mouseY));
+                this.resetButton = null;
+                this.addButton = null;
+                this.removeButton = Button.builder(Component.literal("x"), b -> {
+                            IKeyBinding tms = (IKeyBinding) binding;
+                            tms.tms$setBoundKey(InputConstants.UNKNOWN);
+                            tms.tms$getKeyModifiers().unset();
+                            if (listening == binding) listening = null;
+                            minecraft.options.save();
+                            refreshList();
+                        })
+                        .bounds(0, 0, BTN_W, ROW_HEIGHT - 2)
+                        .build();
             }
         }
 
         private int extraButtonsWidth() { return BTN_W * (isAlternative ? 1 : 2) + 4; }
 
-        private void drawSmallButton(GuiGraphics g, int x, int top, int height, String label, boolean hovered) {
-            g.fill(x, top + 1, x + BTN_W, top + height - 1, hovered ? 0xFF707070 : 0xFF505050);
-            g.drawCenteredString(font, label, x + BTN_W / 2, top + (height - 8) / 2, 0xFFFFFF);
-        }
+        @Override
+        public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean hovering, float partialTick) {
+            // Label area scales with the row so long names (e.g. from big Create addons)
+            // get truncated with "..." instead of drawing over the key button.
+            int labelWidth = Math.max(90, (int) (width * 0.42));
+            String label = isAlternative ? "  \u21B3 alt" : Component.translatable(binding.getName()).getString();
+            if (font.width(label) > labelWidth - 4) {
+                label = font.plainSubstrByWidth(label, labelWidth - 4 - font.width("...")) + "...";
+            }
+            List<KeyMapping> conflictList = conflicts.getOrDefault(binding, List.of());
+            int labelColor = conflictList.isEmpty() ? 0xFFFFFF : 0xFF5555;
+            g.drawString(font, label, left + 2, top + (height - 8) / 2, labelColor);
 
-        private int keyBtnRight() { return rowLeft + rowWidth - extraButtonsWidth(); }
+            int x = left + labelWidth;
+            int keyBtnW = Math.max(40, width - labelWidth - extraButtonsWidth() - 6);
 
-        private boolean hitKey(int mx, int my) {
-            return mx >= rowLeft + 90 && mx < keyBtnRight() && my >= rowTop + 1 && my < rowTop + ROW_HEIGHT - 1;
-        }
+            boolean isListening = binding == listening;
+            keyButton.setX(x);
+            keyButton.setY(top + 1);
+            keyButton.setWidth(keyBtnW);
+            keyButton.setHeight(height - 2);
+            Component keyText = isListening
+                    ? Component.literal(listeningLabel())
+                    : binding.getTranslatedKeyMessage();
+            if (!conflictList.isEmpty()) {
+                keyText = keyText.copy().withStyle(ChatFormatting.RED);
+            }
+            keyButton.setMessage(keyText);
+            keyButton.render(g, mouseX, mouseY, partialTick);
+            x += keyBtnW + 2;
 
-        private boolean hitReset(int mx, int my) {
-            int x = keyBtnRight() + 2;
-            return !isAlternative && mx >= x && mx < x + BTN_W && my >= rowTop + 1 && my < rowTop + ROW_HEIGHT - 1;
-        }
+            if (!isAlternative) {
+                resetButton.active = !binding.isDefault();
+                resetButton.setX(x); resetButton.setY(top + 1); resetButton.setWidth(BTN_W); resetButton.setHeight(height - 2);
+                resetButton.render(g, mouseX, mouseY, partialTick);
+                x += BTN_W + 2;
 
-        private boolean hitAdd(int mx, int my) {
-            int x = keyBtnRight() + 2 + BTN_W + 2;
-            return !isAlternative && mx >= x && mx < x + BTN_W && my >= rowTop + 1 && my < rowTop + ROW_HEIGHT - 1;
-        }
+                addButton.setX(x); addButton.setY(top + 1); addButton.setWidth(BTN_W); addButton.setHeight(height - 2);
+                addButton.render(g, mouseX, mouseY, partialTick);
+            } else {
+                removeButton.setX(x); removeButton.setY(top + 1); removeButton.setWidth(BTN_W); removeButton.setHeight(height - 2);
+                removeButton.render(g, mouseX, mouseY, partialTick);
+            }
 
-        private boolean hitRemove(int mx, int my) {
-            int x = keyBtnRight() + 2;
-            return isAlternative && mx >= x && mx < x + BTN_W && my >= rowTop + 1 && my < rowTop + ROW_HEIGHT - 1;
+            if (!conflictList.isEmpty() && keyButton.isHovered()) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("too_many_shortcuts.screen.conflict_title"));
+                for (KeyMapping other : conflictList) {
+                    tooltip.add(Component.translatable(other.getName()));
+                }
+                g.renderTooltip(font, tooltip, Optional.empty(), mouseX, mouseY);
+            }
         }
 
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            int mx = (int) mouseX, my = (int) mouseY;
-            if (hitKey(mx, my)) {
-                startListening(binding);
-                return true;
-            }
-            if (hitReset(mx, my)) {
-                dev.kingtux.tms.api.Utils.resetBinding(binding, false);
-                minecraft.options.save();
-                refreshList();
-                return true;
-            }
-            if (hitAdd(mx, my)) {
-                AlternativeKeyMapping alt = new AlternativeKeyMapping(binding);
-                startListening(alt);
-                refreshList();
-                return true;
-            }
-            if (hitRemove(mx, my)) {
-                IKeyBinding tms = (IKeyBinding) binding;
-                tms.tms$setBoundKey(InputConstants.UNKNOWN);
-                tms.tms$getKeyModifiers().unset();
-                if (listening == binding) listening = null;
-                minecraft.options.save();
-                refreshList();
-                return true;
-            }
+            if (keyButton.mouseClicked(mouseX, mouseY, button)) return true;
+            if (resetButton != null && resetButton.mouseClicked(mouseX, mouseY, button)) return true;
+            if (addButton != null && addButton.mouseClicked(mouseX, mouseY, button)) return true;
+            if (removeButton != null && removeButton.mouseClicked(mouseX, mouseY, button)) return true;
             return false;
         }
 

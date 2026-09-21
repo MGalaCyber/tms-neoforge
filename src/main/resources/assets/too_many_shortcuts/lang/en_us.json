@@ -11,8 +11,13 @@
   "too_many_shortcuts.toggled.auto_jump": "Auto Jump",
 
   "too_many_shortcuts.open_screen": "Too Many Shortcuts...",
-  "too_many_shortcuts.screen.title": "Too Many Shortcuts",
+  "too_many_shortcuts.screen.title": "Key Binds",
   "too_many_shortcuts.screen.search": "Search keybinds...",
+  "too_many_shortcuts.screen.filter.conflicts": "Conflicts: %s",
+  "too_many_shortcuts.screen.filter.unbound": "Unbound: %s",
+  "too_many_shortcuts.screen.filter.on": "ON",
+  "too_many_shortcuts.screen.filter.off": "OFF",
+  "too_many_shortcuts.screen.conflict_title": "Conflicts with:",
 
   "key.categories.too_many_shortcuts": "Too Many Shortcuts",
   "too_many_shortcuts.key.categories.skin_layers": "Skin Layers",
