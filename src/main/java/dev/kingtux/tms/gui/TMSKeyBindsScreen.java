@@ -96,11 +96,31 @@ public final class TMSKeyBindsScreen extends Screen {
         refreshList();
     }
 
+    /** "Ctrl + Shift + ..." style live preview shown on the row while listening. */
+    private String listeningLabel() {
+        BindingModifiers held = TooManyShortcuts.currentModifiers();
+        StringBuilder sb = new StringBuilder();
+        for (KeyModifier m : KeyModifier.VALUES) {
+            if (held.isSet(m)) {
+                sb.append(Component.translatable(m.translationKey()).getString()).append(" + ");
+            }
+        }
+        sb.append("...");
+        return sb.toString();
+    }
+
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (listening != null) {
             if (keyCode == InputConstants.KEY_ESCAPE) {
                 listening = null;
+                return true;
+            }
+            // Ctrl/Shift/Alt alone don't finish the bind — they're held while a real
+            // key is pressed. Without this check, holding Ctrl+Shift+K would finish
+            // listening on the very first key (Ctrl) and bind to plain Left Ctrl,
+            // which is why combos beyond one modifier never worked before.
+            if (KeyModifier.fromKeyCode(keyCode) != null) {
                 return true;
             }
             assign(listening, InputConstants.getKey(keyCode, scanCode));
@@ -199,7 +219,7 @@ public final class TMSKeyBindsScreen extends Screen {
             int x = left + 90;
 
             boolean isListening = binding == listening;
-            String keyText = isListening ? "> ? <" : binding.getTranslatedKeyMessage().getString();
+            String keyText = isListening ? listeningLabel() : binding.getTranslatedKeyMessage().getString();
             int bg = isListening ? 0xFF808000 : (hitKey(mouseX, mouseY) ? 0xFF606060 : 0xFF404040);
             g.fill(x, top + 1, x + keyBtnW, top + height - 1, bg);
             g.drawCenteredString(font, keyText, x + keyBtnW / 2, top + (height - 8) / 2, 0xFFFFFF);

@@ -6,29 +6,41 @@ import dev.kingtux.tms.config.ConfigManager;
 import dev.kingtux.tms.gui.TMSKeyBindsScreen;
 import dev.kingtux.tms.keybinding.SkinLayerKeyMapping;
 import dev.kingtux.tms.keybinding.ToggleAutoJumpKeyMapping;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.options.controls.ControlsScreen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.minecraft.world.entity.player.PlayerModelPart;
 
-/** Client-side wiring: keybind registration and the Controls-screen button.
- *  Registered manually (via addListener) in {@link #register} — deliberately
- *  no {@code @EventBusSubscriber} here, since this class has no
- *  {@code @SubscribeEvent} static methods; that mismatch previously made
- *  NeoForge throw during mod construction and take the whole load down with it. */
+/**
+ * Client-side wiring: keybind registration and swapping vanilla's own "Key Binds..."
+ * screen for {@link TMSKeyBindsScreen}, so there's exactly one keybinds menu instead
+ * of a second button/page bolted on next to it.
+ *
+ * <p>Registered manually (via addListener) in {@link #register} — deliberately no
+ * {@code @EventBusSubscriber} here, since this class has no {@code @SubscribeEvent}
+ * static methods; that mismatch previously made NeoForge throw during mod
+ * construction and take the whole load down with it.</p>
+ */
 public final class ClientSetup {
     private ClientSetup() {}
+
+    /**
+     * The screen open right before vanilla's Key Binds screen was about to open
+     * (almost always the Controls screen). Used so TMSKeyBindsScreen's Done/Escape
+     * goes back to the right place, the same way vanilla's own screen would.
+     */
+    private static Screen lastScreen;
 
     static void register(IEventBus modBus) {
         modBus.addListener(ClientSetup::onClientSetup);
         modBus.addListener(ClientSetup::onRegisterKeyMappings);
-        NeoForge.EVENT_BUS.addListener(ClientSetup::onScreenInit);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::trackLastScreen);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::replaceKeyBindsScreen);
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
@@ -61,18 +73,17 @@ public final class ClientSetup {
         }
     }
 
-    /** Adds a "Too Many Shortcuts..." button to the vanilla Controls screen. */
-    private static void onScreenInit(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof ControlsScreen screen)) return;
+    /** Remembers the most recent non-TMS screen, as a "go back to" target. */
+    private static void trackLastScreen(ScreenEvent.Init.Post event) {
+        if (!(event.getScreen() instanceof TMSKeyBindsScreen)) {
+            lastScreen = event.getScreen();
+        }
+    }
 
-        int x = screen.width / 2 + 5;
-        int y = screen.height - 27;
-        Button button = Button.builder(
-                        Component.translatable("too_many_shortcuts.open_screen"),
-                        b -> screen.getMinecraft().setScreen(new TMSKeyBindsScreen(screen))
-                )
-                .bounds(x, y, 150, 20)
-                .build();
-        event.addListener(button);
+    /** Whenever vanilla is about to open its own Key Binds screen, open ours instead. */
+    private static void replaceKeyBindsScreen(ScreenEvent.Init.Pre event) {
+        if (!(event.getScreen() instanceof KeyBindsScreen)) return;
+        event.setCanceled(true);
+        Minecraft.getInstance().setScreen(new TMSKeyBindsScreen(lastScreen));
     }
 }
