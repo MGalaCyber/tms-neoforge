@@ -227,14 +227,21 @@ public final class TMSKeyBindsScreen extends Screen {
 
         void rebuild(String filter) {
             clearEntries();
+            // Without this, filtering down to a shorter list keeps whatever scroll offset was
+            // left over from before the filter was typed. If you'd scrolled down and then typed
+            // a search with only a few matches, those matches end up above the visible viewport
+            // (or the list looks empty) even though they were added correctly - looks exactly
+            // like "search sometimes doesn't show a result that's actually there".
+            setScrollAmount(0);
+            String trimmedFilter = filter.isBlank() ? null : filter.trim();
             Map<String, List<KeyMapping>> byCategory = Arrays.stream(minecraft.options.keyMappings)
                     .filter(k -> !((IKeyBinding) k).tms$isAlternative())
                     .collect(Collectors.groupingBy(KeyMapping::getCategory, LinkedHashMap::new, Collectors.toList()));
 
             for (var entry : byCategory.entrySet()) {
                 List<KeyMapping> matching = entry.getValue().stream()
-                        .filter(k -> Utils.entryKeyMatches(k, filter.isEmpty() ? null : filter)
-                                || Utils.translatedTextEqualsIgnoreCase(k, filter))
+                        .filter(k -> Utils.entryKeyMatches(k, trimmedFilter)
+                                || Utils.translatedTextEqualsIgnoreCase(k, trimmedFilter))
                         .filter(k -> !filterConflicts || !conflicts.getOrDefault(k, List.of()).isEmpty())
                         .filter(k -> !filterUnbound || ((IKeyBinding) k).tms$getBoundKey().equals(InputConstants.UNKNOWN))
                         .toList();

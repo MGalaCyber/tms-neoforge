@@ -178,13 +178,12 @@ public abstract class MixinKeyMapping implements IKeyBinding {
 
     @Override
     public ConfigBindings tms$toConfig() {
-        return new ConfigBindings(this.key.getName(), tms$modifiers.copy());
+        return new ConfigBindings(this.key, tms$modifiers.copy());
     }
 
     @Override
     public void tms$fromConfig(ConfigBindings config) {
-        InputConstants.Key parsed = InputConstants.getKey(config.key);
-        this.key = parsed != null ? parsed : InputConstants.UNKNOWN;
+        this.key = config.resolve();
         tms$modifiers.set(config.modifiers != null ? config.modifiers : new BindingModifiers());
     }
 

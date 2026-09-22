@@ -37,14 +37,19 @@ public final class Utils {
         return false;
     }
 
-    /** Matches the label shown in the GUI against a filter typed into the search box. */
+    /**
+     * Matches the currently-bound key's label (e.g. "Ctrl + Down Arrow") against a filter typed
+     * into the search box. {@code keyFilter == null} means "no search box text" and always
+     * matches, so every binding shows.
+     */
     public static boolean entryKeyMatches(KeyMapping keyBinding, String keyFilter) {
         if (keyFilter == null) return true;
-        if (keyFilter.isEmpty()) return keyBinding.isUnbound();
         return StringUtils.containsIgnoreCase(keyBinding.getTranslatedKeyMessage().getString(), keyFilter);
     }
 
+    /** Matches the binding's action name (e.g. "Place item") against the search box text. */
     public static boolean translatedTextEqualsIgnoreCase(KeyMapping keyBinding, String search) {
+        if (search == null || search.isEmpty()) return true;
         return StringUtils.containsIgnoreCase(Component.translatable(keyBinding.getName()).getString(), search);
     }
 

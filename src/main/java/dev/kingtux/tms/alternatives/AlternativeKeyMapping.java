@@ -29,8 +29,7 @@ public final class AlternativeKeyMapping extends KeyMapping {
 
     public AlternativeKeyMapping(KeyMapping parent, ConfigBindings config) {
         this(parent, nextTranslationKey(parent), InputConstants.UNKNOWN);
-        InputConstants.Key key = InputConstants.getKey(config.key);
-        ((IKeyBinding) (Object) this).tms$setBoundKey(key != null ? key : InputConstants.UNKNOWN);
+        ((IKeyBinding) (Object) this).tms$setBoundKey(config.resolve());
         BindingModifiers modifiers = config.modifiers != null ? config.modifiers : new BindingModifiers();
         ((IKeyBinding) (Object) this).tms$setKeyModifiers(modifiers);
     }
