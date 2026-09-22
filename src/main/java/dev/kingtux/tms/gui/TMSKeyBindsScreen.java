@@ -40,6 +40,10 @@ import java.util.stream.Collectors;
 public final class TMSKeyBindsScreen extends Screen {
     private static final int ROW_HEIGHT = 20;
     private static final int BTN_W = 20;
+    /** Y position where the scrollable key list starts (below the search box + filter row). */
+    private static final int LIST_TOP = 64;
+    /** Space reserved below the list for the Done button, so the list never draws under it. */
+    private static final int FOOTER_HEIGHT = 34;
 
     private final Screen parent;
     private EditBox searchBox;
@@ -87,7 +91,11 @@ public final class TMSKeyBindsScreen extends Screen {
                 .build();
         addRenderableWidget(unboundFilterButton);
 
-        list = new KeyList(minecraft, width, height - 34, 64);
+        // The 3rd constructor arg is the list's own HEIGHT (a size), not the Y of its
+        // bottom edge — so it must already have LIST_TOP and FOOTER_HEIGHT subtracted out,
+        // or the list overflows past the screen bottom and draws on top of the Done button.
+        int listHeight = Math.max(ROW_HEIGHT, height - LIST_TOP - FOOTER_HEIGHT);
+        list = new KeyList(minecraft, width, listHeight, LIST_TOP);
         addRenderableWidget(list);
         refreshList();
 
@@ -152,6 +160,18 @@ public final class TMSKeyBindsScreen extends Screen {
         tms.tms$setKeyModifiers(modifiers);
         KeyMapping.resetMapping();
         listening = null;
+        minecraft.options.save();
+        refreshList();
+    }
+
+    /** Pressing Escape while listening for a key clears the binding entirely (unbound), matching vanilla's own behavior. */
+    private void unbind(KeyMapping binding) {
+        IKeyBinding tms = (IKeyBinding) binding;
+        tms.tms$setBoundKey(InputConstants.UNKNOWN);
+        tms.tms$getKeyModifiers().unset();
+        KeyMapping.resetMapping();
+        listening = null;
+        minecraft.options.save();
         refreshList();
     }
 
@@ -172,7 +192,7 @@ public final class TMSKeyBindsScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (listening != null) {
             if (keyCode == InputConstants.KEY_ESCAPE) {
-                listening = null;
+                unbind(listening);
                 return true;
             }
             // Ctrl/Shift/Alt alone don't finish the bind — they're held while a real
@@ -306,7 +326,11 @@ public final class TMSKeyBindsScreen extends Screen {
             }
         }
 
-        private int extraButtonsWidth() { return BTN_W * (isAlternative ? 1 : 2) + 4; }
+        // Always reserve room for 2 button slots, even on alt rows which only render 1 (remove).
+        // This keeps the key button the same width across normal and alt rows, so the single
+        // "x" button lines up in the same column as the "+" button above it instead of sitting
+        // further right/left depending on row type.
+        private int extraButtonsWidth() { return BTN_W * 2 + 4; }
 
         @Override
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean hovering, float partialTick) {
@@ -348,6 +372,9 @@ public final class TMSKeyBindsScreen extends Screen {
                 addButton.setX(x); addButton.setY(top + 1); addButton.setWidth(BTN_W); addButton.setHeight(height - 2);
                 addButton.render(g, mouseX, mouseY, partialTick);
             } else {
+                // Skip the slot where "reset" would sit on a normal row, so "x" lands in the
+                // same column as "+" instead of the "R" slot.
+                x += BTN_W + 2;
                 removeButton.setX(x); removeButton.setY(top + 1); removeButton.setWidth(BTN_W); removeButton.setHeight(height - 2);
                 removeButton.render(g, mouseX, mouseY, partialTick);
             }

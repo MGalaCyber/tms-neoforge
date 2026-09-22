@@ -73,11 +73,25 @@ public final class ClientSetup {
         }
     }
 
-    /** Remembers the most recent non-TMS screen, as a "go back to" target. */
+    /**
+     * Remembers the most recent non-TMS, non-vanilla-KeyBinds screen, as a "go back to" target.
+     *
+     * <p>Vanilla's {@link KeyBindsScreen} must never be captured here. Its {@code Init.Pre} is
+     * always canceled by {@link #replaceKeyBindsScreen} below, which means its own
+     * {@code init()} (the one that builds its {@code keyBindsList} widget) never runs — yet
+     * {@code Init.Post} still fires for it right afterwards. If we stored that half-built
+     * screen as {@code lastScreen}, a later {@code TMSKeyBindsScreen} could end up with it as
+     * its {@code parent}, and pressing Done would call {@code Minecraft#setScreen} on it: since
+     * the screen is already marked as initialized, Minecraft skips {@code init()} and calls
+     * {@code repositionElements()} directly, which crashes with a NullPointerException because
+     * {@code keyBindsList} was never set. Excluding it here means that broken instance can
+     * never become a "go back to" target in the first place.</p>
+     */
     private static void trackLastScreen(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof TMSKeyBindsScreen)) {
-            lastScreen = event.getScreen();
-        }
+        Screen screen = event.getScreen();
+        if (screen instanceof TMSKeyBindsScreen) return;
+        if (screen instanceof KeyBindsScreen) return;
+        lastScreen = screen;
     }
 
     /** Whenever vanilla is about to open its own Key Binds screen, open ours instead. */
