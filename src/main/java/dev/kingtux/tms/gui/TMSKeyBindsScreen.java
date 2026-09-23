@@ -221,18 +221,29 @@ public final class TMSKeyBindsScreen extends Screen {
     // ------------------------------------------------------------------------
 
     private final class KeyList extends ObjectSelectionList<Row> {
+        /** Last filter text rebuild() ran with, so a re-render from a rebind/reset/+/x click
+         *  (same filter, list just needs refreshing) doesn't yank the scroll position around -
+         *  only an actual change to the search box text should reset it. */
+        private String lastFilter = null;
+
         KeyList(Minecraft mc, int width, int height, int top) {
             super(mc, width, height, top, ROW_HEIGHT);
         }
 
         void rebuild(String filter) {
             clearEntries();
-            // Without this, filtering down to a shorter list keeps whatever scroll offset was
-            // left over from before the filter was typed. If you'd scrolled down and then typed
-            // a search with only a few matches, those matches end up above the visible viewport
-            // (or the list looks empty) even though they were added correctly - looks exactly
-            // like "search sometimes doesn't show a result that's actually there".
-            setScrollAmount(0);
+            // Reset scroll to the top only when the search text itself changed. Without this
+            // condition, filtering down to a shorter list keeps whatever scroll offset was left
+            // over from before - if you'd scrolled down and then typed a search with only a few
+            // matches, those matches could end up above the visible viewport even though they
+            // were added correctly. But resetting unconditionally (on every rebuild, including
+            // ones triggered by rebinding/resetting/+/x, which call this with the same filter
+            // text) yanks the view back to the top every time you rebind a key - so only do it
+            // when the filter text actually changed.
+            if (!Objects.equals(filter, lastFilter)) {
+                setScrollAmount(0);
+            }
+            lastFilter = filter;
             String trimmedFilter = filter.isBlank() ? null : filter.trim();
             Map<String, List<KeyMapping>> byCategory = Arrays.stream(minecraft.options.keyMappings)
                     .filter(k -> !((IKeyBinding) k).tms$isAlternative())
